@@ -12,15 +12,50 @@ import { ObjectId } from "mongodb";
 const router = express.Router();
 
 // This section will help you get a list of all the records.
+// router.get("/", async (req, res) => {
+//   let collection = await db.collection("files");
+//   let results = await collection.find({}).toArray();
+//   res.send(results).status(200);
+// });
+
 router.get("/", async (req, res) => {
-  let collection = await db.collection("records");
-  let results = await collection.find({}).toArray();
-  res.send(results).status(200);
+  const collection = await db.collection("files");
+
+  // Get the page and limit from query parameters with default values
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const search = req.query.search || "";
+
+  // Calculate the starting index of the records to fetch
+  const startIndex = (page - 1) * limit;
+
+  // Create a search filter if a search query is provided
+  const searchFilter = search
+    ? {
+        $or: [
+          { patientName: { $regex: search, $options: "i" } }, // Case-insensitive regex search for patient name
+          { patientNumber: { $regex: new RegExp(`^${search}`, "i") } } // Case-insensitive regex search for patient number as string
+        ]
+      }
+    : {};
+
+  // Fetch the paginated and filtered results
+  const results = await collection
+    .find(searchFilter)
+    .skip(startIndex)
+    .limit(limit)
+    .toArray();
+
+  res.status(200).send(results);
 });
+
+
+
+
 
 // This section will help you get a single record by id
 router.get("/:id", async (req, res) => {
-  let collection = await db.collection("records");
+  let collection = await db.collection("files");
   let query = { _id: new ObjectId(req.params.id) };
   let result = await collection.findOne(query);
 
@@ -32,11 +67,19 @@ router.get("/:id", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     let newDocument = {
-      name: req.body.name,
-      position: req.body.position,
-      level: req.body.level,
+    patientNumber: req.body.patientNumber,
+    patientName: req.body.patientName,
+    phoneNumber: req.body.phoneNumber,     
+    dateOfBirth: req.body.dateOfBirth,
+    gender: req.body.gender, 
+    viralLoad: [req.body.viralLoad], 
+    visitDate:[req.body.visitDate],  
+    createdAt: Date.now ,
+    // creator: [{type: String, required: false}],       
+    appointmentDate:req.body.appointmentDate,
+    isBooked: false,
     };
-    let collection = await db.collection("records");
+    let collection = await db.collection("files");
     let result = await collection.insertOne(newDocument);
     res.send(result).status(204);
   } catch (err) {
@@ -51,13 +94,18 @@ router.patch("/:id", async (req, res) => {
     const query = { _id: new ObjectId(req.params.id) };
     const updates = {
       $set: {
-        name: req.body.name,
-        position: req.body.position,
-        level: req.body.level,
+        patientNumber: req.body.patientNumber,
+        patientName: req.body.patientName,
+        phoneNumber: req.body.phoneNumber,     
+        dateOfBirth: req.body.dateOfBirth,
+        gender: req.body.gender, 
+        viralLoad: req.body.viralLoad, 
+        visitDate:req.body.visitDate,  
+        appointmentDate:req.body.appointmentDate,
       },
     };
 
-    let collection = await db.collection("records");
+    let collection = await db.collection("files");
     let result = await collection.updateOne(query, updates);
     res.send(result).status(200);
   } catch (err) {
@@ -71,7 +119,7 @@ router.delete("/:id", async (req, res) => {
   try {
     const query = { _id: new ObjectId(req.params.id) };
 
-    const collection = db.collection("records");
+    const collection = db.collection("files");
     let result = await collection.deleteOne(query);
 
     res.send(result).status(200);
